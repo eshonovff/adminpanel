@@ -437,73 +437,78 @@ const Colleagues = () => {
   };
 
   // Обновление записи
-  const handleEdit = () => {
-    editForm.validateFields().then((values) => {
-      const formData = new FormData();
-      
-      formData.append("Id", editingItem.id);
-      
-      // English - агар English тағйир мекунем, дигар забонҳоро бе тағйирот мононем
-      formData.append("FullNameEn", values.fullNameEn?.trim() || editingItem.fullNameEn || "");
-      formData.append("AbouteEn", values.abouteEn?.trim() || editingItem.abouteEn || "");
-      formData.append("SummaryEn", values.summaryEn?.trim() || editingItem.summaryEn || "");
-      
-      // Russian - маълумоти фаъолии русиро мефиристем
-      formData.append("FullNameRu", values.fullNameRu?.trim() || editingItem.fullNameRu || "");
-      formData.append("AbouteRu", values.abouteRu?.trim() || editingItem.abouteRu || "");
-      formData.append("SummaryRu", values.summaryRu?.trim() || editingItem.summaryRu || "");
-      
-      // Tajik - маълумоти фаъолии тоҷикиро мефиристем
-      formData.append("FullNameTj", values.fullNameTj?.trim() || editingItem.fullNameTj || "");
-      formData.append("AbouteTj", values.abouteTj?.trim() || editingItem.abouteTj || "");
-      formData.append("SummaryTj", values.summaryTj?.trim() || editingItem.summaryTj || "");
-      
-      // Common fields
-      formData.append("RoleTj", values.role || editingItem.role || "teacher");
-      
-      // Аксро ҳамчун ImageFile илова мекунем
-      if (imageFileList.length > 0 && imageFileList[0].originFileObj) {
-        formData.append("ImageFile", imageFileList[0].originFileObj);
-      } else {
-        // Агар тасвир интихоб нашуда бошад, "Send empty value" ро мефиристем
-        formData.append("ImageFile", '');
-      }
-      
-      // Добавляем иконки технологий как IconFiles (массив)
-      if (iconFilesList.length > 0) {
-        // Для каждой выбранной иконки добавляем отдельный параметр с тем же именем
-        iconFilesList.forEach(file => {
-          if (file.originFileObj) {
-            formData.append("IconFiles", file.originFileObj);
-          }
-        });
-      } else {
-        // Если иконки не выбраны, отправляем пустое значение
-        formData.append("IconFiles", '');
-      }
+// Обновление записи
+const handleEdit = () => {
+  editForm.validateFields().then((values) => {
+    const formData = new FormData();
+    
+    // Добавляем ID - главный параметр
+    formData.append("Id", editingItem.id);
+    
+    // Основные данные на трех языках
+    // Таджикский
+    formData.append("FullNameTj", values.fullNameTj?.trim() || editingItem.fullNameTj || "");
+    formData.append("AbouteTj", values.abouteTj?.trim() || editingItem.abouteTj || "");
+    formData.append("SummaryTj", values.summaryTj?.trim() || editingItem.summaryTj || "");
+    
+    // Русский
+    formData.append("FullNameRu", values.fullNameRu?.trim() || editingItem.fullNameRu || "");
+    formData.append("AbouteRu", values.abouteRu?.trim() || editingItem.abouteRu || "");
+    formData.append("SummaryRu", values.summaryRu?.trim() || editingItem.summaryRu || "");
+    
+    // Английский
+    formData.append("FullNameEn", values.fullNameEn?.trim() || editingItem.fullNameEn || "");
+    formData.append("AbouteEn", values.abouteEn?.trim() || editingItem.abouteEn || "");
+    formData.append("SummaryEn", values.summaryEn?.trim() || editingItem.summaryEn || "");
+    
+    // Роль сотрудника (teacher или director)
+    formData.append("RoleTj", values.role || editingItem.role || "teacher");
+    
+    // Обработка фотографии
+    if (imageFileList.length > 0 && imageFileList[0].originFileObj) {
+      // Если загружен новый файл изображения
+      formData.append("ProfileImage", imageFileList[0].originFileObj);
+    } else {
+      // Если новое изображение не выбрано, но нужно очистить старое
+      formData.append("ProfileImage", '');
+    }
+    
+    // Обработка иконок
+    if (iconFilesList.length > 0) {
+      // Проверяем новые файлы
+      iconFilesList.forEach(file => {
+        if (file.originFileObj) {
+          formData.append("Icons", file.originFileObj);
+        }
+      });
+    } else {
+      // Если пусто, отправляем пустое значение
+      formData.append("Icons", '');
+    }
 
-      // Консоль лог для проверки
-      console.log("Sending data to API:");
-      for (let pair of formData.entries()) {
-        console.log(pair[0] + ': ' + pair[1]);
-      }
+    // Добавляем эту проверку для вывода данных в консоль
+    console.log("Отправляемые данные:");
+    for (let pair of formData.entries()) {
+      console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]));
+    }
 
-      dispatch(PutColleagues(formData))
-        .then(() => {
-          message.success("Данные сотрудника успешно обновлены!");
-          setImageFileList([]);
-          setIconFilesList([]);
-          editForm.resetFields();
-          setEditModal(false);
-          setEditingItem(null);
-          loadAllData();
-        })
-        .catch(error => {
-          console.error("PUT error details:", error);
-          message.error("Ошибка при обновлении: " + (error.message || "Неизвестная ошибка"));
-        });
-    });
-  };
+    // Отправляем запрос
+    dispatch(PutColleagues(formData))
+      .then(() => {
+        message.success("Данные сотрудника успешно обновлены!");
+        setImageFileList([]);
+        setIconFilesList([]);
+        editForm.resetFields();
+        setEditModal(false);
+        setEditingItem(null);
+        loadAllData();
+      })
+      .catch(error => {
+        console.error("PUT error details:", error);
+        message.error("Ошибка при обновлении: " + (error.message || "Неизвестная ошибка"));
+      });
+  });
+};
 
   // Удаление записи
   const handleDelete = (id) => {

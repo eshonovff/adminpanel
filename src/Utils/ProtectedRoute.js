@@ -13,6 +13,8 @@ const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
   const token = localStorage.getItem("access_token");
   const user = getToken();
+  console.log(user);
+  
   const isValidToken = checkToken();
 
   useEffect(() => {

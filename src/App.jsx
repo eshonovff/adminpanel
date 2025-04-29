@@ -5,10 +5,11 @@ import Dashboard from "./Page/Dashboard/Dashboard";
 import DesignPage from "./Page/DesignPage/DesignPage";
 import Otzivi from "./Page/Otzivi/Otzivi";
 import Zayavki from "./Page/Zayavki/Zayavki";
-import LogIn from "./Page/LoginPage/LogIn";
+
 import Admin from "./Layout/admin";
 import { Toaster } from "react-hot-toast";
 import ProtectedRoute from './Utils/ProtectedRoute'; // Инро илова кунед
+import LogIn from "./Page/LoginPage/LogIn";
 
 const App = () => {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -35,7 +36,7 @@ const App = () => {
     },
     {
       path: "/",
-      element: <ProtectedRoute><Layout /></ProtectedRoute>, // Инро тағйир диҳед
+      element: <ProtectedRoute><Layout /></ProtectedRoute>,
       children: [
         {
           index: true,
@@ -68,7 +69,7 @@ const App = () => {
   }
 
   return (
-    <div className="max-w-[1950px] no-copy">
+    <div className="max-w-[1950px] m-auto no-copy">
       <Toaster position="top-right" />
       <RouterProvider router={router} />
     </div>

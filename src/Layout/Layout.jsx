@@ -15,34 +15,44 @@ const Layout = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [todayRequests, setTodayRequests] = useState([]);
   const searchInputRef = useRef(null);
   
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   
-  // Получаем заявки из Redux store
   const { data: requests } = useSelector((state) => state.ZayavkiSlicer);
 
-  // Проверяем новые заявки каждый раз при изменении массива заявок
+  // Тафтиши токен ҳар 5 сония
+  useEffect(() => {
+    const tokenCheckInterval = setInterval(() => {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        toast.error("Сессия ба охир расид. Лутфан, аз нав ворид шавед.");
+        window.location.href = "/admin";
+      }
+    }, 5000);
+    
+    return () => clearInterval(tokenCheckInterval);
+  }, []);
+
+  // Санҷиши заявкаҳои нав ҳар дақиқа
   useEffect(() => {
     checkNewRequests();
-    // Устанавливаем интервал для периодической проверки новых заявок
+
     const checkInterval = setInterval(() => {
       dispatch(GetZayavki());
-    }, 60000); // Проверка каждую минуту
+    }, 60000); 
 
     return () => clearInterval(checkInterval);
   }, [requests, dispatch]);
 
-  
-
-  // Отслеживаем изменение размера экрана
+  // Танзими муносибгардонии экран (responsive)
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
       setIsMobileView(width < 800);
-      // Автоматически закрываем сайдбар на маленьких экранах при ресайзе
       if (width < 800 && isSidebarOpen) {
         setSidebarOpen(false);
       } else if (width >= 800 && !isSidebarOpen) {
@@ -51,35 +61,36 @@ const Layout = () => {
     };
 
     window.addEventListener('resize', handleResize);
-    handleResize(); // Вызываем один раз для инициализации
+    handleResize();
     
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [isSidebarOpen]);
 
-  // Функция для проверки наличия новых заявок за сегодня
+  // Санҷиши заявкаҳои нав
   const checkNewRequests = () => {
     if (!requests || !Array.isArray(requests)) return;
     
     const today = new Date().toDateString();
-    const todayRequests = requests.filter(
+    const newTodayRequests = requests.filter(
       (req) => new Date(req.createdAt).toDateString() === today && !req.isApproved
     );
     
-    setHasNewRequests(todayRequests.length > 0);
+    setHasNewRequests(newTodayRequests.length > 0);
+    setTodayRequests(newTodayRequests);
   };
 
-  // Сбрасываем индикатор новых заявок при переходе на страницу заявок
+  // Бекор кардани нишондиҳандаи заявкаҳои нав ҳангоми рафтан ба саҳифаи заявкаҳо
   useEffect(() => {
     if (location.pathname === "/zayavki") {
       setHasNewRequests(false);
     }
     
-    // Закрываем сайдбар на мобильных устройствах при переходе по ссылке
     if (isMobileView) {
       setSidebarOpen(false);
     }
   }, [location.pathname, isMobileView]);
 
+  // Тағйири placeholder дар ҷустуҷӯ
   useEffect(() => {
     const interval = setInterval(() => {
       setPlaceholderIndex((prevIndex) => (prevIndex + 1) % placeholders.length);
@@ -88,13 +99,14 @@ const Layout = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Фокус ба ҷустуҷӯ ҳангоми кушодани он
   useEffect(() => {
-    // Focus search input when search is opened
     if (isSearchOpen && searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [isSearchOpen]);
 
+  // Рӯйхати бандҳои менюи асосӣ
   const menuItems = [
     { path: "/", icon: "bx-home-alt", label: "Главная", description: "Обзор панели управления" },
     { 
@@ -118,54 +130,23 @@ const Layout = () => {
     }
   ];
 
-  // Массив уведомлений для демонстрации
-  const notifications = [
-    {
-      id: 1,
-      title: "Новая заявка",
-      message: "Поступила новая заявка от пользователя Анна",
-      time: "2 минуты назад",
-      unread: true
-    },
-    {
-      id: 2,
-      title: "Новый отзыв",
-      message: "Пользователь Алексей оставил отзыв о курсе",
-      time: "1 час назад",
-      unread: false
-    },
-    {
-      id: 3,
-      title: "Системное уведомление",
-      message: "Резервное копирование базы данных завершено",
-      time: "Вчера, 20:45",
-      unread: false
-    }
-  ];
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!isSidebarOpen);
-  };
-
-  const toggleSearch = () => {
-    setIsSearchOpen(!isSearchOpen);
-  };
-
-
-
-  const toggleNotifications = () => {
-    setIsNotificationsOpen(!isNotificationsOpen);
-  };
+  // Функсияҳои асосӣ
+  const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
+  const toggleSearch = () => setIsSearchOpen(!isSearchOpen);
+  const toggleNotifications = () => setIsNotificationsOpen(!isNotificationsOpen);
 
   const handleLogout = () => {
-    // Нест кардани токен
     localStorage.removeItem("access_token");
-    // Нишон додани паёми toast
     toast.success("Вы успешно вышли из системы");
-    // Равона кардан ба саҳифаи логин
     navigate("/admin");
   };
 
+  // Тугмаи санҷиши токен (тоза кардани токен) - барои санҷиш
+  const destroyTokenForTesting = () => {
+    localStorage.removeItem("access_token");
+  };
+
+  // Бандҳои менюи корбар
   const userMenuItems = [
     {
       type: "divider"
@@ -181,6 +162,18 @@ const Layout = () => {
         </div>
       ),
       onClick: handleLogout
+    },
+    {
+      key: "test-token-expiry",
+      label: (
+        <div className="px-1 py-1">
+          <div className="flex items-center text-orange-500">
+            <i className="bx bx-time-five text-lg mr-2"></i>
+            <span>Санҷиши нобудшавии токен</span>
+          </div>
+        </div>
+      ),
+      onClick: destroyTokenForTesting
     }
   ];
 
@@ -381,32 +374,57 @@ const Layout = () => {
           width={320}
         >
           <div className="space-y-4">
-            {notifications.map(notification => (
-              <div 
-                key={notification.id}
-                className={`p-3 rounded-lg border ${notification.unread ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100'}`}
-              >
-                <div className="flex justify-between mb-1">
-                  <h3 className={`text-sm font-medium ${notification.unread ? 'text-blue-700' : 'text-gray-800'}`}>
-                    {notification.title}
-                  </h3>
-                  {notification.unread && (
-                    <Badge color="blue" />
-                  )}
-                </div>
-                <p className="text-sm text-gray-600 mb-1">{notification.message}</p>
-                <div className="text-xs text-gray-500 flex items-center">
-                  <i className="bx bx-time-five mr-1"></i>
-                  {notification.time}
-                </div>
+            {todayRequests.length > 0 ? (
+              <>
+                {todayRequests.map((request) => (
+                  <div 
+                    key={request.id}
+                    className="p-3 rounded-lg border bg-blue-50 border-blue-100"
+                  >
+                    <div className="flex justify-between mb-1">
+                      <h3 className="text-sm font-medium text-blue-700">
+                        Новая заявка #{request.id}
+                      </h3>
+                      <Badge color="blue" />
+                    </div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      {request.name ? `От клиента: ${request.name}` : 'Новая заявка'}
+                      {request.phone && `, тел: ${request.phone}`}
+                    </p>
+                    <div className="text-xs text-gray-500 flex items-center">
+                      <i className="bx bx-time-five mr-1"></i>
+                      {new Date(request.createdAt).toLocaleString()}
+                    </div>
+                    <div className="mt-2">
+                      <Link 
+                        to="/zayavki" 
+                        onClick={toggleNotifications}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        Перейти к заявкам
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <i className="bx bx-bell-off text-4xl mb-2"></i>
+                <p>Новых уведомлений нет</p>
               </div>
-            ))}
+            )}
 
-            <div className="pt-4 border-t border-gray-100">
-              <button className="text-sm text-blue-600 hover:text-blue-800 font-medium w-full text-center">
-                Посмотреть все уведомления
-              </button>
-            </div>
+            {todayRequests.length > 0 && (
+              <div className="pt-4 border-t border-gray-100">
+                <Link 
+                  to="/zayavki"
+                  onClick={toggleNotifications}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium block w-full text-center"
+                >
+                  Посмотреть все заявки
+                </Link>
+              </div>
+            )}
           </div>
         </Drawer>
       </div>

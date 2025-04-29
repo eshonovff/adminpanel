@@ -24,7 +24,8 @@ import {
   Tag,
   List,
   ConfigProvider,
-  Avatar
+  Avatar,
+  Badge
 } from 'antd';
 import {
   GlobalOutlined,
@@ -66,7 +67,6 @@ const Course = () => {
   // Media queries для поддержки адаптивности
   const isMobile = useMediaQuery({ maxWidth: 767 });
   const isTablet = useMediaQuery({ minWidth: 768, maxWidth: 991 });
-
 
   // Загрузка данных при первом рендеринге
   useEffect(() => {
@@ -116,65 +116,47 @@ const Course = () => {
     }
   };
 
-  // Функции для модального окна добавления
+  // УЛУЧШЕННАЯ ФУНКЦИЯ: Добавление курса с поддержкой нескольких преподавателей
   const handleAdd = () => {
     form.validateFields().then((values) => {
       const formData = new FormData();
       
-      // English
+      // Обязательные языковые поля
+      formData.append("NameTj", values.nameTj?.trim() || "");
+      formData.append("NameRu", values.nameRu?.trim() || "");
       formData.append("NameEn", values.nameEn?.trim() || "");
+      formData.append("DescriptionTj", values.descriptionTj?.trim() || "");
+      formData.append("DescriptionRu", values.descriptionRu?.trim() || "");
       formData.append("DescriptionEn", values.descriptionEn?.trim() || "");
       
-      // Russian
-      formData.append("NameRu", values.nameRu?.trim() || "");
-      formData.append("DescriptionRu", values.descriptionRu?.trim() || "");
-      
-      // Tajik
-      formData.append("NameTj", values.nameTj?.trim() || "");
-      formData.append("DescriptionTj", values.descriptionTj?.trim() || "");
-      
-      // Common fields
+      // Общие поля
       formData.append("Price", +values.price || 0);
       formData.append("Duration", +values.duration || 3);
       
-      // Несколько преподавателей (массив ID)
+      // УЛУЧШЕНИЕ: Обработка массива преподавателей (ColleagueIds)
       if (values.colleagueIds && Array.isArray(values.colleagueIds) && values.colleagueIds.length > 0) {
-        values.colleagueIds.forEach((id) => {
+        values.colleagueIds.forEach(id => {
           if (id) {
             formData.append("ColleagueIds", id);
           }
         });
-      } else {
-        // Если выбран старый способ (один преподаватель), добавляем его
-        if (values.colleagueId) {
-          formData.append("ColleagueIds", values.colleagueId);
-        }
       }
       
       // Материалы курса (массив строк)
       if (values.materials && Array.isArray(values.materials) && values.materials.length > 0) {
-        values.materials.forEach((material) => {
+        values.materials.forEach(material => {
           if (material && material.trim()) {
             formData.append("Materials", material.trim());
           }
         });
-      } else {
-        formData.append("Materials", " ");
       }
       
       // Изображение курса
       if (imageFileList.length > 0 && imageFileList[0].originFileObj) {
         formData.append("Image", imageFileList[0].originFileObj);
-      } else {
-        formData.append("Image", "");
       }
 
-      // Консоль лог для проверки
-      console.log("Sending data to API:");
-      for (let pair of formData.entries()) {
-        console.log(pair[0] + ': ' + pair[1]);
-      }
-
+      // Отправка данных на сервер
       dispatch(PostCourse(formData))
         .then(() => {
           message.success("Курс успешно добавлен!");
@@ -190,39 +172,68 @@ const Course = () => {
     });
   };
 
-  // Функции для редактирования
+  // Получение полной информации о курсе на всех языках
+  const getCourseAllLanguages = (id) => {
+    const enVersion = courseEn?.find(item => item.id === id) || {};
+    const ruVersion = courseRu?.find(item => item.id === id) || {};
+    const tjVersion = courseTj?.find(item => item.id === id) || {};
+    
+    // УЛУЧШЕНИЕ: Корректное получение списка преподавателей
+    const colleagues = (enVersion.colleagues || ruVersion.colleagues || tjVersion.colleagues || []);
+    const colleagueIds = colleagues.map(colleague => colleague.id);
+    
+    return {
+      id,
+      imagePath: enVersion.imagePath || ruVersion.imagePath || tjVersion.imagePath,
+      price: enVersion.price || ruVersion.price || tjVersion.price || 0,
+      duration: enVersion.duration || ruVersion.duration || tjVersion.duration || 3,
+      
+      // Массив преподавателей
+      colleagues,
+      colleagueIds,
+      
+      // Материалы
+      materials: enVersion.materials || ruVersion.materials || tjVersion.materials || [],
+      
+      // Языковые версии
+      nameEn: enVersion.name || "",
+      descriptionEn: enVersion.description || "",
+      
+      nameRu: ruVersion.name || "",
+      descriptionRu: ruVersion.description || "",
+      
+      nameTj: tjVersion.name || "",
+      descriptionTj: tjVersion.description || "",
+    };
+  };
+
+  // Функция для подготовки формы редактирования
   const handleEditClick = (record) => {
-    // Получаем данные курса на всех языках
     const multilingualData = getCourseAllLanguages(record.id);
     setEditingItem(multilingualData);
     
     // Устанавливаем значения формы
     editForm.setFieldsValue({
-      // English
+      // Языковые поля
       nameEn: multilingualData.nameEn,
       descriptionEn: multilingualData.descriptionEn,
-      
-      // Russian
       nameRu: multilingualData.nameRu,
       descriptionRu: multilingualData.descriptionRu,
-      
-      // Tajik
       nameTj: multilingualData.nameTj,
       descriptionTj: multilingualData.descriptionTj,
       
-      // Common
+      // Общие поля
       price: multilingualData.price,
       duration: multilingualData.duration,
       
-      // Новый способ с массивом преподавателей
+      // УЛУЧШЕНИЕ: Преподаватели как массив ID
       colleagueIds: multilingualData.colleagueIds || [],
       
-      // Старый способ (для совместимости)
-      colleagueId: multilingualData.colleagueId,
-      
+      // Материалы
       materials: multilingualData.materials || []
     });
     
+    // Установка изображения, если оно есть
     if (multilingualData.imagePath) {
       setImageFileList([
         {
@@ -239,122 +250,83 @@ const Course = () => {
     setEditModal(true);
   };
 
-  // Получение языковых версий для курса
-  const getCourseAllLanguages = (id) => {
-    // Найдем курс на всех языках
-    const enVersion = courseEn?.find(item => item.id === id) || {};
-    const ruVersion = courseRu?.find(item => item.id === id) || {};
-    const tjVersion = courseTj?.find(item => item.id === id) || {};
+  // УЛУЧШЕННАЯ ФУНКЦИЯ: Обновление курса с учетом нескольких преподавателей
+  // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Обновление курса с корректной заменой преподавателей
+const handleEdit = () => {
+  editForm.validateFields().then((values) => {
+    const formData = new FormData();
     
-    // Получаем массив ID преподавателей
-    const courseColleagues = enVersion.colleagues || ruVersion.colleagues || tjVersion.colleagues || [];
-    const colleagueIds = courseColleagues.map(colleague => colleague.id);
+    // ID курса
+    formData.append("Id", editingItem.id);
     
-    return {
-      // Общие поля
-      id,
-      imagePath: enVersion.imagePath || ruVersion.imagePath || tjVersion.imagePath,
-      price: enVersion.price || ruVersion.price || tjVersion.price || 0,
-      duration: enVersion.duration || ruVersion.duration || tjVersion.duration || 3,
+    // Добавление языковых полей
+    formData.append("NameTj", values.nameTj?.trim() || editingItem.nameTj || "");
+    formData.append("NameRu", values.nameRu?.trim() || editingItem.nameRu || "");
+    formData.append("NameEn", values.nameEn?.trim() || editingItem.nameEn || "");
+    formData.append("DescriptionTj", values.descriptionTj?.trim() || editingItem.descriptionTj || "");
+    formData.append("DescriptionRu", values.descriptionRu?.trim() || editingItem.descriptionRu || "");
+    formData.append("DescriptionEn", values.descriptionEn?.trim() || editingItem.descriptionEn || "");
+    
+    // Общие поля
+    formData.append("Price", values.price || editingItem.price || 0);
+    formData.append("Duration", values.duration || editingItem.duration || 3);
+    
+    // ИСПРАВЛЕНИЕ: Добавление специального флага для очистки существующих преподавателей
+    formData.append("ClearColleagueIds", "true");
+    
+    // Добавление новых преподавателей
+    if (values.colleagueIds && Array.isArray(values.colleagueIds)) {
+      // Сначала сравнить с исходным списком
+      console.log("New colleague IDs:", values.colleagueIds);
+      console.log("Original colleague IDs:", editingItem.colleagueIds || []);
       
-      // Поддержка нескольких преподавателей
-      colleagues: courseColleagues,
-      colleagueIds: colleagueIds,
-      
-      // Для совместимости со старым кодом
-      colleague: enVersion.colleague || ruVersion.colleague || tjVersion.colleague || null,
-      colleagueId: enVersion.colleague?.id || ruVersion.colleague?.id || tjVersion.colleague?.id || null,
-      
-      materials: enVersion.materials || ruVersion.materials || tjVersion.materials || [],
-      
-      // Языковые версии
-      nameEn: enVersion.name || "",
-      descriptionEn: enVersion.description || "",
-      
-      nameRu: ruVersion.name || "",
-      descriptionRu: ruVersion.description || "",
-      
-      nameTj: tjVersion.name || "",
-      descriptionTj: tjVersion.description || "",
-    };
-  };
-
-  // Обновление записи
-  const handleEdit = () => {
-    editForm.validateFields().then((values) => {
-      const formData = new FormData();
-      
-      formData.append("Id", editingItem.id);
-      
-      // English
-      formData.append("NameEn", values.nameEn?.trim() || editingItem.nameEn || "");
-      formData.append("DescriptionEn", values.descriptionEn?.trim() || editingItem.descriptionEn || "");
-      
-      // Russian
-      formData.append("NameRu", values.nameRu?.trim() || editingItem.nameRu || "");
-      formData.append("DescriptionRu", values.descriptionRu?.trim() || editingItem.descriptionRu || "");
-      
-      // Tajik
-      formData.append("NameTj", values.nameTj?.trim() || editingItem.nameTj || "");
-      formData.append("DescriptionTj", values.descriptionTj?.trim() || editingItem.descriptionTj || "");
-      
-      // Common fields
-      formData.append("Price", values.price || editingItem.price || 0);
-      formData.append("Duration", values.duration || editingItem.duration || 3);
-      
-      // Несколько преподавателей (массив ID)
-      if (values.colleagueIds && Array.isArray(values.colleagueIds) && values.colleagueIds.length > 0) {
-        values.colleagueIds.forEach((id) => {
-          if (id) {
-            formData.append("ColleagueIds", id);
-          }
-        });
-      } else {
-        // Если используется старый способ (один преподаватель)
-        if (values.colleagueId) {
-          formData.append("ColleagueIds", values.colleagueId);
+      // Добавление преподавателей
+      values.colleagueIds.forEach(id => {
+        if (id) {
+          formData.append("AdditionalColleagueIds", id);
         }
-      }
-      
-      // Материалы курса (массив строк)
-      if (values.materials && Array.isArray(values.materials) && values.materials.length > 0) {
-        values.materials.forEach((material,) => {
-          if (material && material.trim()) {
-            formData.append("Materials", material.trim());
-          }
-        });
-      } else {
-        formData.append("Materials", "");
-      }
-      
-      // Изображение курса
-      if (imageFileList.length > 0 && imageFileList[0].originFileObj) {
-        formData.append("Image", imageFileList[0].originFileObj);
-      } else {
-        formData.append("Image", "");
-      }
+      });
+    } else {
+      // Если массив пустой или не существует, явно показываем что преподавателей нет
+      formData.append("HasNoColleagues", "true");
+    }
+    
+    // Материалы курса
+    if (values.materials && Array.isArray(values.materials) && values.materials.length > 0) {
+      values.materials.forEach(material => {
+        if (material && material.trim()) {
+          formData.append("Materials", material.trim());
+        }
+      });
+    }
+    
+    // Изображение курса
+    if (imageFileList.length > 0 && imageFileList[0].originFileObj) {
+      formData.append("Image", imageFileList[0].originFileObj);
+    }
 
-      // Консоль лог для проверки
-      console.log("Sending data to API:");
-      for (let pair of formData.entries()) {
-        console.log(pair[0] + ': ' + pair[1]);
-      }
+    // Отправка данных и вывод информации для отладки
+    console.log("Sending PUT request with data:");
+    for (let pair of formData.entries()) {
+      console.log(pair[0] + ': ' + pair[1]);
+    }
 
-      dispatch(PutCourse(formData))
-        .then(() => {
-          message.success("Данные курса успешно обновлены!");
-          setImageFileList([]);
-          editForm.resetFields();
-          setEditModal(false);
-          setEditingItem(null);
-          loadAllData();
-        })
-        .catch(error => {
-          console.error("PUT error details:", error);
-          message.error("Ошибка при обновлении: " + (error.message || "Неизвестная ошибка"));
-        });
-    });
-  };
+    // Отправка данных на сервер
+    dispatch(PutCourse(formData))
+      .then(() => {
+        message.success("Данные курса успешно обновлены!");
+        setImageFileList([]);
+        editForm.resetFields();
+        setEditModal(false);
+        setEditingItem(null);
+        loadAllData();
+      })
+      .catch(error => {
+        console.error("PUT error details:", error);
+        message.error("Ошибка при обновлении: " + (error.message || "Неизвестная ошибка"));
+      });
+  });
+};
 
   // Удаление записи
   const handleDelete = (id) => {
@@ -382,6 +354,13 @@ const Course = () => {
       <div style={{ marginTop: 8 }}>Upload</div>
     </div>
   );
+
+  // Получение правильного склонения для слова "преподаватель"
+  const getTeacherWordForm = (count) => {
+    if (count === 1) return 'преподаватель';
+    if (count >= 2 && count <= 4) return 'преподавателя';
+    return 'преподавателей';
+  };
 
   // Колонки для таблицы с учетом размера экрана
   const getColumns = () => {
@@ -488,83 +467,122 @@ const Course = () => {
         )
       });
       
-      // Колонка с преподавателями - новая версия с поддержкой нескольких преподавателей
+      // УЛУЧШЕННАЯ КОЛОНКА: Отображение преподавателей с расширенным дизайном
       baseColumns.push({
         title: 'Преподаватели',
         dataIndex: 'colleagues',
         key: 'colleagues',
-        width: 180,
-        render: (colleagues, record) => {
-          // Получаем массив преподавателей из record
+        width: 200, // Увеличена ширина колонки
+        render: (colleagues) => {
           const instructors = colleagues || [];
           
-          if (instructors.length === 0 && record.colleague) {
-            // Совместимость со старой версией (один преподаватель)
-            return (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {record.colleague.profileImage ? (
-                  <Avatar 
-                    src={import.meta.env.VITE_APP_API_URL_IMAGE + record.colleague.profileImage} 
-                    size={isTablet ? 24 : 32} 
-                  />
-                ) : (
-                  <Avatar icon={<UserOutlined />} size={isTablet ? 24 : 32} />
-                )}
-                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>
-                  {record.colleague.fullName}
-                </div>
-              </div>
-            );
-          } else if (instructors.length === 0) {
+          if (instructors.length === 0) {
             return <Text type="secondary">Не назначены</Text>;
           }
           
-          // Для нескольких преподавателей
+          // Улучшенное отображение для нескольких преподавателей
           return (
-            <Tooltip
-              title={
-                <List
-                  size="small"
-                  dataSource={instructors}
-                  renderItem={(instructor) => (
-                    <List.Item>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {instructor.profileImage ? (
-                          <Avatar 
-                            src={import.meta.env.VITE_APP_API_URL_IMAGE + instructor.profileImage} 
-                            size={24} 
-                          />
-                        ) : (
-                          <Avatar icon={<UserOutlined />} size={24} />
-                        )}
-                        {instructor.fullName}
+            <div className="instructor-display">
+              {/* Заголовок с количеством */}
+              <div className="flex items-center mb-2">
+                <TeamOutlined style={{ marginRight: 5, color: '#1890ff' }} />
+                <Text strong style={{ color: '#1890ff' }}>
+                  {instructors.length} {getTeacherWordForm(instructors.length)}
+                </Text>
+              </div>
+              
+              {/* Каскадное отображение аватаров с наложением */}
+              <div 
+                className="instructor-avatars" 
+                style={{ 
+                  display: 'flex',
+                  position: 'relative',
+                  height: '36px'
+                }}
+              >
+                {instructors.slice(0, 4).map((instructor, index) => (
+                  <Tooltip 
+                    key={index} 
+                    title={
+                      <div>
+                        <div style={{ fontWeight: 'bold' }}>{instructor.fullName}</div>
+                        {instructor.role && <div>{instructor.role}</div>}
                       </div>
-                    </List.Item>
-                  )}
-                />
-              }
-            >
-              <div>
-                <Tag color="cyan">
-                  <TeamOutlined /> {instructors.length} преподавателей
-                </Tag>
-                <div style={{ marginTop: '4px', display: 'flex', gap: '4px' }}>
-                  {instructors.slice(0, 3).map((instructor, index) => (
-                    <Avatar 
-                      key={index}
+                    }
+                    placement="top"
+                  >
+                    <Avatar
                       src={instructor.profileImage ? import.meta.env.VITE_APP_API_URL_IMAGE + instructor.profileImage : null}
                       icon={!instructor.profileImage && <UserOutlined />}
-                      size={24} 
+                      size={36}
+                      style={{
+                        position: 'absolute',
+                        left: `${index * 22}px`,
+                        zIndex: 10 - index,
+                        border: '2px solid white',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        cursor: 'pointer'
+                      }}
                     />
-                  ))}
-                  {instructors.length > 3 && (
-                    <Avatar style={{ backgroundColor: '#1890ff' }} size={24}>
-                      +{instructors.length - 3}
-                    </Avatar>
-                  )}
-                </div>
+                  </Tooltip>
+                ))}
+                
+                {/* Если преподавателей больше 4, показываем индикатор +N */}
+                {instructors.length > 4 && (
+                  <Avatar
+                    style={{
+                      position: 'absolute',
+                      left: `${4 * 22}px`,
+                      zIndex: 5,
+                      backgroundColor: '#1890ff',
+                      color: 'white',
+                      border: '2px solid white',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      cursor: 'pointer'
+                    }}
+                    size={36}
+                  >
+                    +{instructors.length - 4}
+                  </Avatar>
+                )}
               </div>
-            </Tooltip>
+              
+              {/* Список всех преподавателей в подсказке */}
+              <Tooltip
+                title={
+                  <List
+                    size="small"
+                    dataSource={instructors}
+                    renderItem={(instructor) => (
+                      <List.Item>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {instructor.profileImage ? (
+                            <Avatar 
+                              src={import.meta.env.VITE_APP_API_URL_IMAGE + instructor.profileImage} 
+                              size={24} 
+                            />
+                          ) : (
+                            <Avatar icon={<UserOutlined />} size={24} />
+                          )}
+                          {instructor.fullName}
+                        </div>
+                      </List.Item>
+                    )}
+                    style={{ maxHeight: '250px', overflow: 'auto' }}
+                  />
+                }
+                placement="right"
+                trigger="click"
+              >
+                <Button 
+                  type="link" 
+                  size="small" 
+                  style={{ marginTop: 8, paddingLeft: 0 }}
+                >
+                  Показать всех
+                </Button>
+              </Tooltip>
+            </div>
           );
         }
       });
@@ -643,24 +661,24 @@ const Course = () => {
         <Col xs={24} md={18}>
           <Tabs defaultActiveKey="1" size={isMobile ? "small" : "middle"}>
             <TabPane 
-              tab={<span><GlobalOutlined style={{color: '#1890ff'}} /> {!isMobile && "English"}</span>} 
+              tab={<span><GlobalOutlined style={{color: '#52c41a'}} /> {!isMobile && "Тоҷикӣ"}</span>} 
               key="1"
             >
               <Form.Item 
-                name="nameEn" 
-                label="Course Name" 
-                rules={[{ required: true, message: 'Please enter course name' }]}
+                name="nameTj" 
+                label="Номи курс" 
+                rules={[{ required: true, message: 'Лутфан номи курсро ворид кунед' }]}
               >
-                <Input placeholder="Enter course name in English" />
+                <Input placeholder="Номи курсро бо забони тоҷикӣ ворид кунед" />
               </Form.Item>
 
               <Form.Item 
-                name="descriptionEn" 
-                label="Description" 
-                rules={[{ required: true, message: 'Please enter description' }]}
+                name="descriptionTj" 
+                label="Тавсиф" 
+                rules={[{ required: true, message: 'Лутфан тавсифи курсро ворид кунед' }]}
               >
                 <TextArea 
-                  placeholder="Enter course description in English" 
+                  placeholder="Тавсифи курсро бо забони тоҷикӣ ворид кунед" 
                   rows={isMobile ? 6 : 10}
                 />
               </Form.Item>
@@ -691,24 +709,24 @@ const Course = () => {
             </TabPane>
 
             <TabPane 
-              tab={<span><GlobalOutlined style={{color: '#52c41a'}} /> {!isMobile && "Тоҷикӣ"}</span>} 
+              tab={<span><GlobalOutlined style={{color: '#1890ff'}} /> {!isMobile && "English"}</span>} 
               key="3"
             >
               <Form.Item 
-                name="nameTj" 
-                label="Номи курс" 
-                rules={[{ required: true, message: 'Лутфан номи курсро ворид кунед' }]}
+                name="nameEn" 
+                label="Course Name" 
+                rules={[{ required: true, message: 'Please enter course name' }]}
               >
-                <Input placeholder="Номи курсро бо забони тоҷикӣ ворид кунед" />
+                <Input placeholder="Enter course name in English" />
               </Form.Item>
 
               <Form.Item 
-                name="descriptionTj" 
-                label="Тавсиф" 
-                rules={[{ required: true, message: 'Лутфан тавсифи курсро ворид кунед' }]}
+                name="descriptionEn" 
+                label="Description" 
+                rules={[{ required: true, message: 'Please enter description' }]}
               >
                 <TextArea 
-                  placeholder="Тавсифи курсро бо забони тоҷикӣ ворид кунед" 
+                  placeholder="Enter course description in English" 
                   rows={isMobile ? 6 : 10}
                 />
               </Form.Item>
@@ -751,15 +769,15 @@ const Course = () => {
             </Title>
           </Divider>
 
-          {/* Новый компонент для выбора нескольких преподавателей */}
+          {/* УЛУЧШЕННЫЙ КОМПОНЕНТ: выбор нескольких преподавателей */}
           <Form.Item 
             name="colleagueIds" 
-            label="Выберите преподавателей (до 4-х)"
+            label="Выберите преподавателей"
             rules={[
               {
                 validator: (_, value) => {
                   if (!value || value.length === 0) {
-                    return Promise.resolve(); // Необязательное поле
+                    return Promise.resolve();
                   }
                   if (value.length > 4) {
                     return Promise.reject('Максимальное количество преподавателей - 4');
@@ -771,7 +789,7 @@ const Course = () => {
           >
             <Select
               mode="multiple"
-              placeholder="Выберите преподавателей"
+              placeholder="Выберите преподавателей курса"
               optionFilterProp="children"
               maxTagCount={3}
               style={{ width: '100%' }}
